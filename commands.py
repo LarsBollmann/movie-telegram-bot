@@ -1,7 +1,9 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
+import requests
 import datetime
 from babel.dates import format_date
+import os.path
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
@@ -32,6 +34,8 @@ async def upcoming(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
 async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    image_size = "original"
+    cache_folder = "cache/"
     movie_id = int(update.callback_query.data.split("_")[1])
     #TODO: locale programmatically
     movie = context.bot_data["api"].getMovie(movie_id, language="de", region="DE")
@@ -42,12 +46,21 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
             movie["overview"]
         )
         return
+
+    if not os.path.exists(cache_folder):
+        os.makedirs(cache_folder)
     
-    photo = context.bot_data["api"].image_base_url + "w500" + movie["poster_path"]
+    file_path = cache_folder + str(movie_id) + "_" + image_size + movie["poster_path"].split(".")[-1]
+    if not os.path.isfile(file_path):
+        file_url = context.bot_data["api"].image_base_url + "w154" + movie["poster_path"]
+        response = requests.get(file_url)
+        with open(file_path, "wb") as f:
+            f.write(response.content)
+        
     await context.bot.send_photo(
         update.effective_chat.id,
-        photo,
-        caption=movie["overview"]
+        open(file_path, "rb"),
+        caption=movie["overview"],
     )
 
 

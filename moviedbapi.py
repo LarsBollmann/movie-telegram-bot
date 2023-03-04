@@ -12,7 +12,7 @@ class MovieAPI:
         self.api_key = api_key
         response = requests.get(
             self.base_url + '/configuration?api_key=' + self.api_key)
-        self.image_base_url = response.json()['images']['base_url']
+        self.image_base_url = response.json()['images']['secure_base_url']
 
     def createQueryParams(self, **kwargs):
         query = '?api_key=' + self.api_key
