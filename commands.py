@@ -131,9 +131,11 @@ async def upcoming(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date = format_date(date, locale=chat.language.split("-")[0])
         buttons.append([InlineKeyboardButton(movie["title"] + " (" +  date + ")", callback_data="movie_" + str(movie["id"]))])
     
+
+
     await context.bot.send_message(
         update.effective_chat.id,
-        "Upcoming movies:\n",
+        "Upcoming movies" + (" (some genres are excluded, use /filter to change that)" if chat.excluded_genres else "" ) + ":",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
@@ -155,7 +157,7 @@ async def now_playing(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_message(
         update.effective_chat.id,
-        "Currently playing movies:\n",
+        "Currently playing movies" + ( " (some genres are excluded, use /filter to change that ´)" if chat.excluded_genres else "" ) + ":",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
     
