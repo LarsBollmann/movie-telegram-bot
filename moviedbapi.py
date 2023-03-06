@@ -32,7 +32,8 @@ class MovieAPI:
 
     def getMovie(self, movie_id, **kwargs) -> json:
         url = self.base_url + '/movie/' + \
-            str(movie_id) + self.createQueryParams(**kwargs)
+            str(movie_id) + self.createQueryParams(**kwargs) + \
+            '&append_to_response=credits,release_dates'
         return requests.get(url).json()
 
     def getUpcomingMovies(self, **kwargs) -> json:

@@ -1,4 +1,5 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineQueryResultArticle, InputTextMessageContent
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineQueryResultArticle, InputTextMessageContent, constants
+from telegram.helpers import escape_markdown
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters, InlineQueryHandler
 import requests
 import datetime
@@ -164,16 +165,43 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cache_folder = "cache/"
     movie_id = int(update.callback_query.data.split("_")[1])
     movie = context.bot_data["api"].getMovie(movie_id, **chat.getQueryParams())
+
     if movie["overview"] == "":
         overview_eng = context.bot_data["api"].getMovie(movie_id, language="en-US")
         if overview_eng["overview"] != "":
             movie["overview"] = "There was no description in you language available, so here is the english one:\n\n" + overview_eng["overview"]
         else:
             movie["overview"] = "There was no description available for this movie."
+
+    age_rating = "Not available"
+    for release_date in movie["release_dates"]["results"]:
+        if release_date["iso_3166_1"].lower() == chat.country.lower():
+            certification = release_date["release_dates"][0]["certification"]
+            if certification != "":
+                age_rating = certification
+            break
+    
+    # TODO locale specific datestring in seperate function
+    release_date = format_date(datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d"), locale=chat.language.split("-")[0])
+    cast = movie["credits"]["cast"]
+    director = [crew["name"] for crew in movie["credits"]["crew"] if crew["job"] == "Director"]
+
+    caption = \
+        "*" + escape_markdown(movie["title"], version=2) + "*" + "\n" + \
+        escape_markdown(movie["overview"], version=2) + "\n\n" + \
+        "*Cast*: " + \
+            escape_markdown(", ".join([cast[i]["name"] for i in range(0, min(3, len(cast)))]), version=2) + \
+        "\n*Directed by*: " + \
+            escape_markdown(", ".join(director), version=2) + \
+        "\n*Age rating*: " + \
+            escape_markdown(age_rating + " (" + chat.country + ")",version=2) + \
+        "\n*Release date*: " + \
+            escape_markdown(release_date + " (" + chat.country + ")", version=2 )
+    
     if movie["poster_path"] == None:
         await context.bot.send_message(
             update.effective_chat.id,
-            movie["overview"]
+            caption
         )
         return
 
@@ -186,11 +214,12 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = requests.get(file_url)
         with open(file_path, "wb") as f:
             f.write(response.content)
-        
+    
     await context.bot.send_photo(
         update.effective_chat.id,
         open(file_path, "rb"),
-        caption=movie["overview"],
+        caption=caption,
+        parse_mode=constants.ParseMode.MARKDOWN_V2
     )
 
 async def inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
