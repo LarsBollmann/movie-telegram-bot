@@ -53,7 +53,8 @@ async def filter_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.setExcludedGenres(update.effective_chat.id, chat.excluded_genres)
     elif query.data.startswith("remove_genre_"):
         genre_id = int(query.data.split("_")[2])
-        chat.excluded_genres.remove(genre_id)
+        if genre_id in chat.excluded_genres:
+            chat.excluded_genres.remove(genre_id)
         db.setExcludedGenres(update.effective_chat.id, chat.excluded_genres)
 
     keyboard = []
@@ -111,19 +112,22 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def upcoming(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    number = 10
     db = context.bot_data["db"]
     chat = db.getChat(update.effective_chat.id)
 
     upcoming = context.bot_data["api"].getUpcomingMovies(**chat.getQueryParams())
     upcoming = upcoming["results"]
+    upcoming.sort(key=lambda x: x["popularity"], reverse=True)
+    upcoming = upcoming[:10]
     upcoming.sort(key=lambda x: x["release_date"])
 
     buttons = []
     
-    for i in range(0, min(10, len(upcoming))):
+    for i in range(0, min(number, len(upcoming))):
         movie = upcoming[i]
         date = datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d")
-        date = format_date(date, format="short", locale=chat.language.split("-")[0])
+        date = format_date(date, locale=chat.language.split("-")[0])
         buttons.append([InlineKeyboardButton(movie["title"] + " (" +  date + ")", callback_data="movie_" + str(movie["id"]))])
     
     await context.bot.send_message(
@@ -145,7 +149,7 @@ async def now_playing(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i in range(0, min(10, len(current))):
         movie = current[i]
         date = datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d")
-        date = format_date(date, format="short", locale=chat.language.split("-")[0])
+        date = format_date(date, locale=chat.language.split("-")[0])
         buttons.append([InlineKeyboardButton(movie["title"] + " (" +  date + ")", callback_data="movie_" + str(movie["id"]))])
     
     await context.bot.send_message(
@@ -162,7 +166,10 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
     movie = context.bot_data["api"].getMovie(movie_id, **chat.getQueryParams())
     if movie["overview"] == "":
         overview_eng = context.bot_data["api"].getMovie(movie_id, language="en-US")
-        movie["overview"] = "There was no description in you language available, so here is the english one:\n\n" + overview_eng["overview"]
+        if overview_eng["overview"] != "":
+            movie["overview"] = "There was no description in you language available, so here is the english one:\n\n" + overview_eng["overview"]
+        else:
+            movie["overview"] = "There was no description available for this movie."
     if movie["poster_path"] == None:
         await context.bot.send_message(
             update.effective_chat.id,
@@ -196,7 +203,8 @@ async def inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = []
     for movie in context.bot_data["api"].search(query, **chat.getQueryParams())["results"]:
         date = datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d")
-        date = format_date(date, format="short", locale=chat.language.split("-")[0])
+        print(chat.language)
+        date = format_date(date, locale=chat.language.split("-")[0])
         results.append(
             InlineQueryResultArticle(
                 id=movie["id"],
