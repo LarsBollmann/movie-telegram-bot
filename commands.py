@@ -248,8 +248,12 @@ async def inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     country_name = next(country['english_name'] for country in context.bot_data["api"].countries if country["iso_3166_1"] == chat.country)
     results = []
     for movie in context.bot_data["api"].search(query, **chat.getQueryParams())["results"]:
-        date = datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d")
-        date = format_date(date, locale=chat.language.split("-")[0])
+        print(movie["release_date"])
+        try:
+            date = datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d")
+            date = format_date(date, locale=chat.language.split("-")[0])
+        except:
+            date = "???"
         results.append(
             InlineQueryResultArticle(
                 id=movie["id"],
