@@ -1,5 +1,6 @@
 import telegram
 import commands
+import handlers
 import dotenv
 import os
 import db
@@ -15,5 +16,5 @@ db = db.DB()
 app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 app.bot_data["api"] = api
 app.bot_data["db"] = db
-commands.add_handlers(app)
+handlers.add_handlers(app)
 app.run_polling()

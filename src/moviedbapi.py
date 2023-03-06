@@ -13,8 +13,7 @@ class MovieAPI:
 
     def __init__(self, api_key):
         self.api_key = api_key
-        response = requests.get(
-            self.base_url + '/configuration' + self.createQueryParams())
+        response = requests.get(self.base_url + '/configuration' + self.createQueryParams())
         self.image_base_url = response.json()['images']['secure_base_url']
         self.languages = self.getLanguages()
         self.languages = list(filter(lambda x: '?' not in x["english_name"] and x["english_name"] != "No Language" and x["english_name"] != "", self.languages))
@@ -26,20 +25,21 @@ class MovieAPI:
     def createQueryParams(self, **kwargs):
         query = '?api_key=' + self.api_key
         for key, value in kwargs.items():
-            if value != None:
+            if value != None and value != '':
                 query += '&' + key + '=' + value
         return query
 
     def getMovie(self, movie_id, **kwargs) -> json:
-        url = self.base_url + '/movie/' + \
-            str(movie_id) + self.createQueryParams(**kwargs) + \
+        url = self.base_url + '/movie/' + str(movie_id) + self.createQueryParams(**kwargs) + \
             '&append_to_response=credits,release_dates'
         return requests.get(url).json()
 
     def getUpcomingMovies(self, **kwargs) -> json:
         # get upcoming movies within the next 3 weeks
-        url = self.base_url + '/movie/upcoming' + self.createQueryParams(**kwargs) + '&primary_release_date.gte=' + datetime.datetime.now().strftime("%Y-%m-%d") + '&primary_release_date.lte=' + (datetime.datetime.now() + datetime.timedelta(days=21)).strftime("%Y-%m-%d")
-        
+        url = self.base_url + '/movie/upcoming' + self.createQueryParams(**kwargs) + \
+            '&primary_release_date.gte=' + datetime.datetime.now().strftime("%Y-%m-%d") + \
+            '&primary_release_date.lte=' + (datetime.datetime.now() + datetime.timedelta(days=21)).strftime("%Y-%m-%d")
+        print(url)
         return requests.get(url).json()
 
     def getNowPlayingMovies(self, **kwargs) -> json:
@@ -47,21 +47,25 @@ class MovieAPI:
         return requests.get(url).json()
 
     def searchMovie(self, query, **kwargs) -> json:
-        url = self.base_url + '/search/movie' + \
-            self.createQueryParams(**kwargs) + '&query=' + query
+        url = self.base_url + '/search/movie' + self.createQueryParams(**kwargs) + '&query=' + query
         return requests.get(url).json()
 
     def getCountries(self) -> json:
-        url = self.base_url + '/configuration/countries' + \
-            self.createQueryParams()
+        url = self.base_url + '/configuration/countries' + self.createQueryParams()
         return requests.get(url).json()   
 
     def getLanguages(self) -> json:
-        url = self.base_url + '/configuration/languages' + \
-            self.createQueryParams()
+        url = self.base_url + '/configuration/languages' + self.createQueryParams()
         return requests.get(url).json()
 
     def getGenres(self) -> json:
-        url = self.base_url + '/genre/movie/list' + \
-            self.createQueryParams()
+        url = self.base_url + '/genre/movie/list' + self.createQueryParams()
         return requests.get(url).json().get('genres')
+
+    def getCertifications(self, country) -> json:
+        url = self.base_url + '/certification/movie/list' + self.createQueryParams()
+        results = requests.get(url).json().get('certifications')
+        if country.upper() in results:
+            return results[country.upper()]
+        else:
+            return []

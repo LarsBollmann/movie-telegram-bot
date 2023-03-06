@@ -11,6 +11,6 @@ COPY Pipfile Pipfile.lock ./
 RUN pipenv install
 
 COPY migrations/ migrations/
-COPY *.py ./
+COPY src/ src/
 
-CMD ["pipenv", "run", "python", "bot.py"]
+CMD ["pipenv", "run", "python", "src/bot.py"]

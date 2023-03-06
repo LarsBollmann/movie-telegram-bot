@@ -1,14 +1,16 @@
 import psycopg2
 import os
 from urllib.parse import urlparse
+from moviedbapi import MovieAPI
 
 class Chat:
     chat_id = None
     language = None
     country = None
     excluded_genres = []
+    excluded_ages = []
     
-    def __init__(self, chat_id, language, country, excluded_genres):
+    def __init__(self, chat_id, language, country, excluded_genres, excluded_ages):
         self.chat_id = chat_id
         self.language = language
         self.country = country
@@ -17,12 +19,33 @@ class Chat:
         else:
             # as int
             self.excluded_genres = list(map(int, excluded_genres.split(",")))
+        if excluded_ages == None or excluded_ages == "":
+            self.excluded_ages = []
+        else:
+            self.excluded_ages = excluded_ages.split(",")
 
     def __str__(self):
         return "Chat(" + str(self.chat_id) + ")"
 
+    def get_included_ages(self):
+        api = MovieAPI(os.getenv("API_KEY"))
+        certifications = api.getCertifications(self.country)
+        if certifications == None:
+            return [], None
+        included = []
+        for certification in certifications:
+            if certification["certification"] not in self.excluded_ages:
+                included.append(certification["certification"])
+        return included, certifications
+
     def getQueryParams(self):
-        return { "language": self.language, "region": self.country, "without_genres": ",".join(map(str, self.excluded_genres)) }
+        extra = {}
+        if self.excluded_ages != None and len(self.excluded_ages) > 0:
+            included_ages, certifications = self.get_included_ages()
+            if certifications != None:
+                extra["certification_country"] = self.country.upper()
+                extra["certification"] = "-".join(included_ages)
+        return { "language": self.language, "region": self.country, "without_genres": ",".join(map(str, self.excluded_genres)), **extra }
 
 
 class DB:
@@ -80,10 +103,16 @@ class DB:
         c.execute("INSERT INTO users(chat_id, excluded_genres) VALUES (%s, %s) ON CONFLICT (chat_id) DO UPDATE SET excluded_genres = %s", (chat_id, genrestring, genrestring))
         self.conn.commit()
 
+    def setExcludedAges(self, chat_id, excluded_ages):
+        c = self.conn.cursor()
+        agestring = ",".join(str(x) for x in excluded_ages)
+        c.execute("INSERT INTO users(chat_id, excluded_ages) VALUES (%s, %s) ON CONFLICT (chat_id) DO UPDATE SET excluded_ages = %s", (chat_id, agestring, agestring))
+        self.conn.commit()
+
     def getChat(self, chat_id):
         c = self.conn.cursor()
         c.execute("SELECT * FROM users WHERE chat_id = %s", (chat_id,))
         row = c.fetchone()
         if row == None:
-            return Chat(-1, "en", "us", "")
-        return Chat(row[0], row[1], row[2], row[3])
+            return Chat(-1, "en", "us", "", "")
+        return Chat(row[0], row[1], row[2], row[3], row[4])
