@@ -3,16 +3,26 @@ import os
 from urllib.parse import urlparse
 
 class Chat:
-    def __init__(self, chat_id, language, country):
+    chat_id = None
+    language = None
+    country = None
+    excluded_genres = []
+    
+    def __init__(self, chat_id, language, country, excluded_genres):
         self.chat_id = chat_id
         self.language = language
         self.country = country
-    
+        if excluded_genres == None or excluded_genres == "":
+            self.excluded_genres = []
+        else:
+            # as int
+            self.excluded_genres = list(map(int, excluded_genres.split(",")))
+
     def __str__(self):
         return "Chat(" + str(self.chat_id) + ")"
 
     def getQueryParams(self):
-        return { "language": self.language, "region": self.country }
+        return { "language": self.language, "region": self.country, "without_genres": ",".join(map(str, self.excluded_genres)) }
 
 
 class DB:
@@ -64,10 +74,16 @@ class DB:
         c.execute("INSERT INTO users(chat_id, country) VALUES (%s, %s) ON CONFLICT (chat_id) DO UPDATE SET country = %s", (chat_id, country, country))
         self.conn.commit()
 
+    def setExcludedGenres(self, chat_id, excluded_genres):
+        c = self.conn.cursor()
+        genrestring = ",".join(str(x) for x in excluded_genres)
+        c.execute("INSERT INTO users(chat_id, excluded_genres) VALUES (%s, %s) ON CONFLICT (chat_id) DO UPDATE SET excluded_genres = %s", (chat_id, genrestring, genrestring))
+        self.conn.commit()
+
     def getChat(self, chat_id):
         c = self.conn.cursor()
         c.execute("SELECT * FROM users WHERE chat_id = %s", (chat_id,))
         row = c.fetchone()
         if row == None:
-            return Chat(-1, "en", "us")
-        return Chat(row[0], row[1], row[2])
+            return Chat(-1, "en", "us", "")
+        return Chat(row[0], row[1], row[2], row[3])

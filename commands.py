@@ -6,7 +6,7 @@ from babel.dates import format_date
 import os.path
 import re
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     languages = context.bot_data["api"].languages.copy()
     for i in range(0, len(languages)):
         languages[i] = [KeyboardButton(languages[i]["english_name"])]
@@ -19,9 +19,59 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return 0
 
+async def filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Genres to exclude
+    genres = context.bot_data["api"].genres.copy()
+    db = context.bot_data["db"]
+    chat = db.getChat(update.effective_chat.id)
+
+    keyboard = []
+    for genre in genres:
+        if genre["id"] in chat.excluded_genres:
+            keyboard.append([InlineKeyboardButton(genre["name"] + " (excluded)", callback_data="remove_genre_" + str(genre["id"]))])
+        else:
+            keyboard.append([InlineKeyboardButton(genre["name"], callback_data="add_genre_" + str(genre["id"]))])
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="What genres do you want to exclude from your results?",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+    return 0
+
+async def filter_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    api = context.bot_data["api"]
+    genres = api.genres.copy()
+    db = context.bot_data["db"]
+    chat = db.getChat(update.effective_chat.id)
+
+    if query.data.startswith("add_genre_"):
+        genre_id = int(query.data.split("_")[2])
+        chat.excluded_genres.append(genre_id)
+        db.setExcludedGenres(update.effective_chat.id, chat.excluded_genres)
+    elif query.data.startswith("remove_genre_"):
+        genre_id = int(query.data.split("_")[2])
+        chat.excluded_genres.remove(genre_id)
+        db.setExcludedGenres(update.effective_chat.id, chat.excluded_genres)
+
+    keyboard = []
+    for genre in genres:
+        if genre["id"] in chat.excluded_genres:
+            keyboard.append([InlineKeyboardButton(genre["name"] + " (excluded)", callback_data="remove_genre_" + str(genre["id"]))])
+        else:
+            keyboard.append([InlineKeyboardButton(genre["name"], callback_data="add_genre_" + str(genre["id"]))])
+
+    await query.edit_message_text(
+        text="What genres do you want to exclude from your results?",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+    return 0
+
 async def country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     languages = context.bot_data["api"].languages
-    print(update.message.text.lower())
     language_iso = next(language['iso_639_1'] for language in languages if language["english_name"].lower() == update.message.text.lower())
     language_iso += "-en"
 
@@ -79,6 +129,28 @@ async def upcoming(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         update.effective_chat.id,
         "Upcoming movies:\n",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+async def now_playing(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db = context.bot_data["db"]
+    chat = db.getChat(update.effective_chat.id)
+
+    current = context.bot_data["api"].getNowPlayingMovies(**chat.getQueryParams())
+    current = current["results"]
+    current.sort(key=lambda x: x["popularity"], reverse=True)
+
+    buttons = []
+    
+    for i in range(0, min(10, len(current))):
+        movie = current[i]
+        date = datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d")
+        date = format_date(date, format="short", locale=chat.language.split("-")[0])
+        buttons.append([InlineKeyboardButton(movie["title"] + " (" +  date + ")", callback_data="movie_" + str(movie["id"]))])
+    
+    await context.bot.send_message(
+        update.effective_chat.id,
+        "Currently playing movies:\n",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
     
@@ -149,7 +221,7 @@ def add_handlers(app):
     region_regex = str.join("|", countries)
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=[CommandHandler("start", settings), CommandHandler("settings", settings)],
         states={
             0: [MessageHandler(filters.Regex(re.compile(f"^({language_regex})$", re.IGNORECASE)), country)],
             1: [MessageHandler(filters.Regex(re.compile(f"^({region_regex})$", re.IGNORECASE)), done)]
@@ -159,5 +231,8 @@ def add_handlers(app):
 
     app.add_handler(conv_handler)
     app.add_handler(CommandHandler("upcoming", upcoming))
+    app.add_handler(CommandHandler("nowplaying", now_playing))
+    app.add_handler(CommandHandler("filter", filter))
     app.add_handler(CallbackQueryHandler(movie, pattern="movie_.*"))
+    app.add_handler(CallbackQueryHandler(filter_callback, pattern=".*_genre_.*"))
     app.add_handler(InlineQueryHandler(inline))

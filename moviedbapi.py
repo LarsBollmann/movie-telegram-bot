@@ -9,6 +9,7 @@ class MovieAPI:
     api_key = None
     languages: json = None
     countries: json = None
+    genres: json = None
 
     def __init__(self, api_key):
         self.api_key = api_key
@@ -20,6 +21,7 @@ class MovieAPI:
         self.languages.sort(key=lambda x: x["english_name"])
         self.countries = self.getCountries()
         self.countries.sort(key=lambda x: x["english_name"])
+        self.genres = self.getGenres()
 
     def createQueryParams(self, **kwargs):
         query = '?api_key=' + self.api_key
@@ -39,6 +41,10 @@ class MovieAPI:
         
         return requests.get(url).json()
 
+    def getNowPlayingMovies(self, **kwargs) -> json:
+        url = self.base_url + '/movie/now_playing' + self.createQueryParams(**kwargs)
+        return requests.get(url).json()
+
     def searchMovie(self, query, **kwargs) -> json:
         url = self.base_url + '/search/movie' + \
             self.createQueryParams(**kwargs) + '&query=' + query
@@ -53,6 +59,11 @@ class MovieAPI:
         url = self.base_url + '/configuration/languages' + \
             self.createQueryParams()
         return requests.get(url).json()
+
+    def getGenres(self) -> json:
+        url = self.base_url + '/genre/movie/list' + \
+            self.createQueryParams()
+        return requests.get(url).json().get('genres')
 
     def search(self, query, **kwargs) -> json:
         url = self.base_url + '/search/movie' + \

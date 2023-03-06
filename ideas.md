@@ -1,1 +1,1 @@
-* [] Sprache und Standort einstellen
+* [x] Sprache und Standort einstellen
