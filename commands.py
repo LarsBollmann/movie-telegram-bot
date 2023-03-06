@@ -1,8 +1,10 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineQueryResultArticle, InputTextMessageContent, constants
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineQueryResultArticle, InputTextMessageContent, constants, InputMediaPhoto
 from telegram.helpers import escape_markdown
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters, InlineQueryHandler
 import requests
 import datetime
+from db import Chat
+from moviedbapi import MovieAPI
 from babel.dates import format_date
 import os.path
 import re
@@ -160,18 +162,16 @@ async def now_playing(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Currently playing movies" + ( " (some genres are excluded, use /filter to change that)" if chat.excluded_genres else "" ) + ":",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
-    
-async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = context.bot_data["db"].getChat(update.effective_chat.id)
+
+def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
     image_size = "original"
     cache_folder = "cache/"
-    movie_id = int(update.callback_query.data.split("_")[1])
-    movie = context.bot_data["api"].getMovie(movie_id, **chat.getQueryParams())
+    movie = api.getMovie(movie_id, **chat.getQueryParams())
 
     if movie["overview"] == "":
-        overview_eng = context.bot_data["api"].getMovie(movie_id, language="en-US")
+        overview_eng = api.getMovie(movie_id, language="en-US")
         if overview_eng["overview"] != "":
-            movie["overview"] = "There was no description in you language available, so here is the english one:\n\n" + overview_eng["overview"]
+            movie["overview"] = "There was no description in your language available. I will show you the english one instead:\n\n" + overview_eng["overview"]
         else:
             movie["overview"] = "There was no description available for this movie."
 
@@ -204,28 +204,40 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
             escape_markdown(release_date + " (" + chat.country + ")", version=2 )
     
     if movie["poster_path"] == None:
-        await context.bot.send_message(
-            update.effective_chat.id,
-            caption
-        )
-        return
+        return None, caption
 
     if not os.path.exists(cache_folder):
         os.makedirs(cache_folder)
     
     file_path = cache_folder + str(movie_id) + "_" + image_size + movie["poster_path"].split(".")[-1]
     if not os.path.isfile(file_path):
-        file_url = context.bot_data["api"].image_base_url + "w154" + movie["poster_path"]
+        file_url = api.image_base_url + "w154" + movie["poster_path"]
         response = requests.get(file_url)
         with open(file_path, "wb") as f:
             f.write(response.content)
+
+    return file_path, caption
     
-    await context.bot.send_photo(
-        update.effective_chat.id,
-        open(file_path, "rb"),
-        caption=caption,
-        parse_mode=constants.ParseMode.MARKDOWN_V2
-    )
+async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = context.bot_data["db"].getChat(update.effective_user.id)
+    api = context.bot_data["api"]
+    movie_id = int(update.callback_query.data.split("_")[1])
+
+    file_path, caption = getMovieDetails(movie_id, chat, api)
+
+    if update.effective_chat != None:
+        await context.bot.send_photo(
+            update.effective_chat.id,
+            open(file_path, "rb") if file_path != None else None,
+            caption=caption,
+            parse_mode=constants.ParseMode.MARKDOWN_V2
+        )
+    else:
+        await context.bot.edit_message_text(
+            text=caption,
+            inline_message_id=update.callback_query.inline_message_id,
+            parse_mode=constants.ParseMode.MARKDOWN_V2
+        )
 
 async def inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.inline_query.query
@@ -237,15 +249,15 @@ async def inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = []
     for movie in context.bot_data["api"].search(query, **chat.getQueryParams())["results"]:
         date = datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d")
-        print(chat.language)
         date = format_date(date, locale=chat.language.split("-")[0])
         results.append(
             InlineQueryResultArticle(
                 id=movie["id"],
                 title=movie["title"] + " (" +  date + ")",
-                input_message_content=InputTextMessageContent(movie["title"] + " release in " + country_name + ": " + date + "."),
+                input_message_content=InputTextMessageContent(movie["title"] + ": " + date + " (" + country_name + ")"),
                 description=movie["overview"],
-                thumb_url=context.bot_data["api"].image_base_url + "w154" + movie["poster_path"] if movie["poster_path"] != None else None
+                thumb_url=context.bot_data["api"].image_base_url + "w154" + movie["poster_path"] if movie["poster_path"] != None else None,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("More details", callback_data="movie_" + str(movie["id"]))]])
             )
         )
     await context.bot.answer_inline_query(update.inline_query.id, results)
