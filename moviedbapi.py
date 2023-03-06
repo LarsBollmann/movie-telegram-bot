@@ -65,8 +65,3 @@ class MovieAPI:
         url = self.base_url + '/genre/movie/list' + \
             self.createQueryParams()
         return requests.get(url).json().get('genres')
-
-    def search(self, query, **kwargs) -> json:
-        url = self.base_url + '/search/movie' + \
-            self.createQueryParams(**kwargs) + '&query=' + query
-        return requests.get(url).json()

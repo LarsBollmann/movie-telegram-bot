@@ -180,7 +180,14 @@ def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
     for release_date in movie["release_dates"]["results"]:
         if release_date["iso_3166_1"].lower() == chat.country.lower():
             certification = release_date["release_dates"][0]["certification"]
-            rl_date = release_date["release_dates"][0]["release_date"]
+            rl_date = None
+            for release in release_date["release_dates"]:
+                if release["note"] == "":
+                    rl_date = release["release_date"]
+                    break
+            if rl_date == None:
+                rl_date = release_date["release_dates"][0]["release_date"]
+
             if certification != "":
                 age_rating = certification
             if rl_date != "":
@@ -247,21 +254,20 @@ async def inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = context.bot_data["db"].getChat(update.inline_query.from_user.id)
     country_name = next(country['english_name'] for country in context.bot_data["api"].countries if country["iso_3166_1"] == chat.country)
     results = []
-    for movie in context.bot_data["api"].search(query, **chat.getQueryParams())["results"]:
-        print(movie["release_date"])
+    for movie in context.bot_data["api"].searchMovie(query, **chat.getQueryParams())["results"]:
         try:
             date = datetime.datetime.strptime(movie["release_date"], "%Y-%m-%d")
-            date = format_date(date, locale=chat.language.split("-")[0])
+            date = format_date(date, "yyyy", locale=chat.language.split("-")[0])
         except:
             date = "???"
         results.append(
             InlineQueryResultArticle(
                 id=movie["id"],
                 title=movie["title"] + " (" +  date + ")",
-                input_message_content=InputTextMessageContent(movie["title"] + ": " + date + " (" + country_name + ")"),
+                input_message_content=InputTextMessageContent(movie["title"]),
                 description=movie["overview"],
                 thumb_url=context.bot_data["api"].image_base_url + "w154" + movie["poster_path"] if movie["poster_path"] != None else None,
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("More details", callback_data="movie_" + str(movie["id"]))]])
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Show Details", callback_data="movie_" + str(movie["id"]))]])
             )
         )
     await context.bot.answer_inline_query(update.inline_query.id, results)
