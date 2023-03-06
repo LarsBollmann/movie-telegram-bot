@@ -169,7 +169,7 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
     movie = context.bot_data["api"].getMovie(movie_id, **chat.getQueryParams())
 
     if movie["overview"] == "":
-        overview_eng = context.bot_data["api"].getMovie(movie_id, **chat.getQueryParams())
+        overview_eng = context.bot_data["api"].getMovie(movie_id, language="en-US")
         if overview_eng["overview"] != "":
             movie["overview"] = "There was no description in you language available, so here is the english one:\n\n" + overview_eng["overview"]
         else:
