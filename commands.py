@@ -157,7 +157,7 @@ async def now_playing(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_message(
         update.effective_chat.id,
-        "Currently playing movies" + ( " (some genres are excluded, use /filter to change that ´)" if chat.excluded_genres else "" ) + ":",
+        "Currently playing movies" + ( " (some genres are excluded, use /filter to change that)" if chat.excluded_genres else "" ) + ":",
         reply_markup=InlineKeyboardMarkup(buttons)
     )
     
