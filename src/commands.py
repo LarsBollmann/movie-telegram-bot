@@ -235,7 +235,6 @@ def filter_warning(chat):
 async def upcoming(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = context.bot_data["db"]
     chat = db.getChat(update.effective_chat.id)
-    print(chat.language, chat.country)
 
     upcoming = context.bot_data["api"].getUpcomingMovies(**chat.getQueryParams())
     upcoming = upcoming["results"]

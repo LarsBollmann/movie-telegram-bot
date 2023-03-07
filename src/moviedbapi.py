@@ -39,7 +39,6 @@ class MovieAPI:
         url = self.base_url + '/movie/upcoming' + self.createQueryParams(**kwargs) + \
             '&primary_release_date.gte=' + datetime.datetime.now().strftime("%Y-%m-%d") + \
             '&primary_release_date.lte=' + (datetime.datetime.now() + datetime.timedelta(days=21)).strftime("%Y-%m-%d")
-        print(url)
         return requests.get(url).json()
 
     def getNowPlayingMovies(self, **kwargs) -> json:
