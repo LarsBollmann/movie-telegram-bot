@@ -289,7 +289,7 @@ def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
             movie["overview"] = "There was no description available for this movie."
 
     age_rating = "Not available"
-    release_date = "Not available"
+    release_date_text = "Not available"
     for release_date in movie["release_dates"]["results"]:
         if release_date["iso_3166_1"].lower() == chat.country.lower():
             certification = release_date["release_dates"][0]["certification"]
@@ -304,7 +304,7 @@ def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
             if certification != "":
                 age_rating = certification
             if rl_date != "":
-                release_date = format_date(datetime.datetime.fromisoformat(rl_date.replace("Z", "")).date(), locale=chat.language.split("-")[0])
+                release_date_text = format_date(datetime.datetime.fromisoformat(rl_date.replace("Z", "")).date(), locale=chat.language.split("-")[0])
             break
     
     # TODO locale specific datestring in seperate function
@@ -323,7 +323,7 @@ def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
         "\n*Age rating*: " + \
             escape_markdown(age_rating + " (" + chat.country + ")",version=2) + \
         "\n*Release date*: " + \
-            escape_markdown(release_date + " (" + chat.country + ")", version=2 )
+            escape_markdown(release_date_text + " (" + chat.country + ")", version=2 )
     
     overview_shortened = False
     if len(title_and_overview) + len(info) > constants.MAX_OVERVIEW_LENGTH:
