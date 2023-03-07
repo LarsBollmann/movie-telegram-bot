@@ -29,7 +29,7 @@ async def filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [InlineKeyboardButton("Genres" + (" (active)" if chat.excluded_genres else ""), callback_data="filter_genres")],
-        [InlineKeyboardButton("Age rating" + (" (active)" if chat.excluded_ages else ""), callback_data="filter_agerating")],
+        #[InlineKeyboardButton("Age rating" + (" (active)" if chat.excluded_ages else ""), callback_data="filter_agerating")],
         [InlineKeyboardButton("Done", callback_data="deletemessage")]
     ]
 
@@ -441,8 +441,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = "*Language*: " + escape_markdown(chat.language.split("-")[0].upper(), version=2) + "\n" + \
         "*Country*: " + escape_markdown(next(country['english_name'] for country in context.bot_data["api"].countries if country["iso_3166_1"] == chat.country), version=2) + "\n" + \
-        "*Excluded genres*: " + escape_markdown(", ".join([genre["name"] for genre in api.genres if genre["id"] in chat.excluded_genres]), version=2) + "\n" + \
-        "*Excluded age ratings*: " + escape_markdown(",".join(chat.excluded_ages) if api.getCertifications(chat.country) != None else "Not available for your country", version=2)
+        "*Excluded genres*: " + escape_markdown(", ".join([genre["name"] for genre in api.genres if genre["id"] in chat.excluded_genres]), version=2)
+        #"*Excluded age ratings*: " + escape_markdown(",".join(chat.excluded_ages) if api.getCertifications(chat.country) != None else "Not available for your country", version=2)
     
     await context.bot.send_message(
         update.effective_chat.id,
