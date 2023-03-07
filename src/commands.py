@@ -280,7 +280,7 @@ async def now_playing(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
     movie = api.getMovie(movie_id, **chat.getQueryParams())
-
+    
     if movie["overview"] == "":
         overview_eng = api.getMovie(movie_id, language="en-US")
         if overview_eng["overview"] != "":
@@ -310,19 +310,22 @@ def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
     # TODO locale specific datestring in seperate function
     cast = movie["credits"]["cast"]
     director = [crew["name"] for crew in movie["credits"]["crew"] if crew["job"] == "Director"]
-
+    genres = [genre["name"] for genre in movie["genres"]]
+    
     title_and_overview = \
         "*" + escape_markdown(movie["title"], version=2) + "*" + "\n" + \
         escape_markdown(movie["overview"], version=2) + "\n\n"
 
     info = \
+        "*Genres*: " + \
+            escape_markdown(", ".join(genres), version=2) + "\n" + \
         "*Cast*: " + \
-            escape_markdown(", ".join([cast[i]["name"] for i in range(0, min(3, len(cast)))]), version=2) + \
-        "\n*Directed by*: " + \
-            escape_markdown(", ".join(director), version=2) + \
-        "\n*Age rating*: " + \
-            escape_markdown(age_rating + " (" + chat.country + ")",version=2) + \
-        "\n*Release date*: " + \
+            escape_markdown(", ".join([cast[i]["name"] for i in range(0, min(3, len(cast)))]), version=2) + "\n" + \
+        "*Directed by*: " + \
+            escape_markdown(", ".join(director), version=2) + "\n" + \
+        "*Age rating*: " + \
+            escape_markdown(age_rating + " (" + chat.country + ")",version=2) + "\n" + \
+        "*Release date*: " + \
             escape_markdown(release_date_text + " (" + chat.country + ")", version=2 )
     
     overview_shortened = False
@@ -334,7 +337,7 @@ def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
     caption = new_title_and_overview + "\n\n" + info
 
     if movie["poster_path"] == None:
-        return None, caption
+        return None, caption, title_and_overview[:constants.MAX_MESSAGE_LENGTH] if overview_shortened else None
 
     if not os.path.exists(constants.CACHE_FOLDER):
         os.makedirs(constants.CACHE_FOLDER)
@@ -345,7 +348,7 @@ def getMovieDetails(movie_id: int, chat: Chat, api: MovieAPI):
         response = requests.get(file_url)
         with open(file_path, "wb") as f:
             f.write(response.content)
-
+            
     return file_path, caption, title_and_overview[:constants.MAX_MESSAGE_LENGTH] if overview_shortened else None
     
 async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -357,8 +360,6 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_path, caption, full_overview = getMovieDetails(movie_id, chat, api)
 
     buttons = []
-
-    buttons.append([InlineKeyboardButton("Back", callback_data="deletemessage")])
 
     # If user clicked on "Show full description" button
     if len(args) > 2 and args[2] == "full":
@@ -385,16 +386,28 @@ async def movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Add "Show full description" button if description was shortened
     if full_overview != None:
         buttons.append([InlineKeyboardButton("Show full description", callback_data="movie_" + str(movie_id) + "_full")])
-
+        
+    buttons.append([InlineKeyboardButton("Back", callback_data="deletemessage")])
+    
     # Send message
     if update.effective_chat != None:
-        await context.bot.send_photo(
-            update.effective_chat.id,
-            open(file_path, "rb") if file_path != None else None,
-            caption=caption,
-            parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
+        #if poster exists send photo
+        if file_path is not None:
+            await context.bot.send_photo(
+                update.effective_chat.id,
+                open(file_path, "rb") if file_path != None else None,
+                caption=caption,
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+        else:
+            await context.bot.send_message(
+                update.effective_chat.id,
+                text=caption,
+                parse_mode=ParseMode.MARKDOWN_V2,
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+        
     else:
         # If message was sent inline
         await context.bot.edit_message_text(
