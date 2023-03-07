@@ -44,7 +44,7 @@ class Chat:
             included_ages, certifications = self.get_included_ages()
             if certifications != None:
                 extra["certification_country"] = self.country.upper()
-                extra["certification"] = "-".join(included_ages)
+                extra["certification"] = "|".join(included_ages)
         return { "language": self.language, "region": self.country, "without_genres": ",".join(map(str, self.excluded_genres)), **extra }
 
 
@@ -114,5 +114,5 @@ class DB:
         c.execute("SELECT * FROM users WHERE chat_id = %s", (chat_id,))
         row = c.fetchone()
         if row == None:
-            return Chat(-1, "en", "us", "", "")
-        return Chat(row[0], row[1], row[2], row[3], row[4])
+            return Chat(-1, "en", "US", "", "")
+        return Chat(row[0], row[1] if row[1] != None else "en", row[2] if row[2] != None else "US", row[3], row[4])

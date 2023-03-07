@@ -29,7 +29,7 @@ async def filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [InlineKeyboardButton("Genres" + (" (active)" if chat.excluded_genres else ""), callback_data="filter_genres")],
-        #[InlineKeyboardButton("Age rating" + (" (active)" if chat.excluded_ages else ""), callback_data="filter_agerating")],
+        [InlineKeyboardButton("Age rating" + (" (active)" if chat.excluded_ages else ""), callback_data="filter_agerating")],
         [InlineKeyboardButton("Done", callback_data="deletemessage")]
     ]
 
@@ -235,6 +235,7 @@ def filter_warning(chat):
 async def upcoming(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = context.bot_data["db"]
     chat = db.getChat(update.effective_chat.id)
+    print(chat.language, chat.country)
 
     upcoming = context.bot_data["api"].getUpcomingMovies(**chat.getQueryParams())
     upcoming = upcoming["results"]
